@@ -1,12 +1,17 @@
 # Access instructions
 
-Two ways to run the model. Neither needs an internet connection, a subscription or an API key.
+The model is a web application. It is already running at the address below, and it can also be run
+locally from the source in this package. Neither route needs a subscription, an account or an API
+key, and no figure in it comes from a paid feed at run time.
 
 ---
 
 ## A. Web application
 
-**Hosted** — open the link on the cover of the report, if one is given. Nothing to install.
+**Hosted** — https://blankslate-valuation-triamirullah.streamlit.app
+
+Nothing to install and nothing to sign in to. The application is public; opening the link is enough.
+An internet connection is needed for this route only.
 
 **Locally** — from this folder (`2_Aplikasi`):
 
@@ -15,13 +20,16 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The application opens at `http://localhost:8501`. Python 3.10 or later.
+The application opens at `http://localhost:8501`. Python 3.10 or later. This route runs entirely
+offline, so the same input file always reproduces the same valuation.
 
 ### What to try first
 
-1. The sidebar opens with a built-in example. Switch between the three to see the method weights
-   change by themselves: a stable firm leans on the discounted cash-flow model, a loss-making one
-   leans on multiples, and a bank switches to the excess-return model with EV multiples disabled.
+1. The sidebar opens with a built-in example. Five are preloaded: ICBP, the company reported here;
+   BBCA, a bank; and three synthetic cases. Switch between them to see the method weights change by
+   themselves: a stable firm leans on the discounted cash-flow model, a loss-making one leans on
+   multiples, and a bank switches to the excess-return model with the EV multiples disabled.
+   Nothing is entered to make that happen; the six rules in **Method selection** decide it.
 2. **Data & history** — change the share price. Everything recalculates, including the
    recommendation.
 3. **Assumptions** — tick *override* on any line. The engine's own default and the rule behind it
@@ -38,26 +46,30 @@ under *Open project / upload template*.
 
 ---
 
-## B. Excel workbook
+## B. Excel workbook — the second implementation
 
-The macro-enabled workbook is built from the files in `1_Excel`, because an `.xlsm` cannot be
-produced without Excel itself: follow `1_Excel/HOW_TO_MAKE_THE_XLSM.txt`, which also lists the
-checks to run once it opens. In short: open `BlankSlate_Valuation_blank.xlsx` (or
-`BlankSlate_Valuation_ICBP.xlsx` for a copy already filled with the reported company), import
-`BlankSlateMacros.bas` through the VBA editor, and save as `.xlsm`.
+The workbooks in `1_Excel` are not an alternative deliverable. They are the same valuation logic
+written again, independently, as Excel formulas, so that the application can be checked against
+something other than itself. Section C is that check.
 
-Then enable macros. If Windows blocks the file, right-click it, choose Properties, tick
-**Unblock**, then reopen.
+Open any of them and every figure is live; there is nothing to enable and no macro to run:
 
-Run `SetupButtons` once (Developer > Macros) to place the buttons on the Dashboard. After that:
-**Import template**, **New company**, **Refresh all**, **Validate inputs**, **Bear / Base / Bull**,
-**Key risks**, **Export summary**.
-
-The VBA source is also included as readable text in `BlankSlateMacros.bas`.
+| File | Holds |
+|---|---|
+| `BlankSlate_Valuation_blank.xlsx` | The empty calculator |
+| `BlankSlate_Valuation_ICBP.xlsx` | ICBP, the company reported here |
+| `BlankSlate_Valuation_BBCA.xlsx` | BBCA, in financial-firm mode |
+| `BlankSlate_Valuation_example.xlsx` | A synthetic case |
+| `BlankSlate_input_template.xlsx` | The blank input template, for any other company |
 
 Sheet colours mark the four layers: orange tabs are inputs, grey tabs are calculations, and the
-Dashboard and Key risks are outputs. Calculation sheets contain formulas only and are never written
-to by the macros.
+Dashboard and Key risks are outputs. Calculation sheets hold formulas only.
+
+`BlankSlateMacros.bas` is included as readable source. It adds buttons to the Dashboard for
+importing a template, switching scenarios, solving break-evens through Goal Seek and exporting a
+summary. It is optional and no part of the validation depends on it: the parity test recalculates
+formulas only, and the figures above are produced without it. To use it, import the module through
+the VBA editor and save the workbook as `.xlsm`.
 
 ---
 
