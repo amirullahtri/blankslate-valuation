@@ -103,6 +103,13 @@ kind of input and tells you the units it expects.
 **A project you saved earlier.** The Export tab writes a project file that carries your inputs,
 your overrides and your settings. Upload it the same way and you resume exactly where you stopped.
 
+**There is no Run button, and nothing is missing.** The valuation recalculates the moment a file
+is read, and again on every change you make afterwards. When a file loads, the sidebar confirms it
+by name and says how many periods and peers it found, and the header above names the source it is
+showing; those are the signs that the upload took effect. If the figures look unchanged after an
+upload, check the source line in the header before assuming nothing happened — a template written
+out from a built-in case will reproduce that case exactly, which is the point of it.
+
 ### The minimum the calculator needs
 
 It will not compute until these are present, and it tells you which are missing rather than
@@ -295,12 +302,25 @@ st.sidebar.caption("A blank valuation calculator: load any company's data, get D
 src = st.sidebar.radio("Data source", ["Open project / upload template", "Built-in example"], index=1)
 if src == "Open project / upload template":
     up = st.sidebar.file_uploader("Filled template or saved project (.xlsx)", type=["xlsx", "xlsm"])
+    st.sidebar.caption("There is no Run button: the whole valuation recalculates the moment a "
+                       "file is read, and again on every change you make.")
     if up is not None:
         try:
             st.session_state["data"] = read_template(up)
             st.session_state["data_name"] = up.name
         except Exception as e:  # noqa: BLE001
             st.sidebar.error(f"Could not read the template: {e}")
+    # Confirm the load explicitly. Without this the screen can look unchanged after an upload --
+    # the company name may even be the same as the example that was showing -- and a first-time
+    # reader concludes nothing happened.
+    _ld = st.session_state.get("data")
+    if _ld and st.session_state.get("data_name"):
+        _np = len(_ld.get("periods") or [])
+        _pr = len(_ld.get("peers") or [])
+        st.sidebar.success(
+            f"Loaded **{st.session_state['data_name']}**  \n"
+            f"{_ld['meta'].get('name') or 'unnamed company'} · {_np} period(s) · {_pr} peer(s) · "
+            f"recalculated")
 else:
     import examples
     # The two real companies lead, so the application opens on the company the report is about
@@ -339,12 +359,16 @@ with st.sidebar.expander("Recommendation & scenario settings"):
 
 missing = preflight(d)
 m = d["meta"]
+_dn = st.session_state.get("data_name") or ""
+esc_src = (f"uploaded file &ldquo;{_dn}&rdquo;" if src.startswith("Open project")
+           else f"built-in example &ldquo;{_dn}&rdquo;")
 st.markdown(
     f"<div class='band'><div class='t'>BLANKSLATE</div>"
     f"<div class='n'>{m.get('name') or 'Unnamed company'} &nbsp;·&nbsp; {m.get('ticker') or ''}</div>"
     f"<div class='s'>Sector: {m.get('sector')} &nbsp;·&nbsp; Valuation date: {m.get('valuation_date')}"
     f" &nbsp;·&nbsp; Data last updated: {d.get('last_updated')}"
-    f" &nbsp;·&nbsp; Figures in {m.get('currency')} × {_num(m.get('unit')) or 1:,.0f}</div></div>",
+    f" &nbsp;·&nbsp; Figures in {m.get('currency')} × {_num(m.get('unit')) or 1:,.0f}"
+    f" &nbsp;·&nbsp; Source: {esc_src}</div></div>",
     unsafe_allow_html=True)
 if missing:
     st.error("Cannot calculate yet. Missing required inputs: " + ", ".join(missing))
