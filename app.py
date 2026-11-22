@@ -103,12 +103,18 @@ kind of input and tells you the units it expects.
 **A project you saved earlier.** The Export tab writes a project file that carries your inputs,
 your overrides and your settings. Upload it the same way and you resume exactly where you stopped.
 
-**There is no Run button, and nothing is missing.** The valuation recalculates the moment a file
-is read, and again on every change you make afterwards. When a file loads, the sidebar confirms it
-by name and says how many periods and peers it found, and the header above names the source it is
-showing; those are the signs that the upload took effect. If the figures look unchanged after an
-upload, check the source line in the header before assuming nothing happened — a template written
-out from a built-in case will reproduce that case exactly, which is the point of it.
+**Nothing has to be started.** The valuation recalculates the moment a file is read, and again
+on every change you make afterwards, so there is no step between loading data and having an answer.
+
+**Recalculate now**, in the sidebar, forces a fresh pass and stamps the time; the stamp appears
+under the recommendation. It is there so the calculation can be seen happening rather than taken
+on trust, not because anything waits for it — press it or ignore it, the figures are the same.
+
+When a file loads, the sidebar confirms it by name and says how many periods and peers it found,
+and the header names the source it is showing. Those are the signs that an upload took effect. If
+the figures look unchanged afterwards, read the source line in the header before assuming nothing
+happened: a template written out from a built-in case reproduces that case exactly, which is the
+point of it.
 
 ### The minimum the calculator needs
 
@@ -302,8 +308,8 @@ st.sidebar.caption("A blank valuation calculator: load any company's data, get D
 src = st.sidebar.radio("Data source", ["Open project / upload template", "Built-in example"], index=1)
 if src == "Open project / upload template":
     up = st.sidebar.file_uploader("Filled template or saved project (.xlsx)", type=["xlsx", "xlsm"])
-    st.sidebar.caption("There is no Run button: the whole valuation recalculates the moment a "
-                       "file is read, and again on every change you make.")
+    st.sidebar.caption("The valuation recalculates the moment the file is read — you do not have "
+                       "to start it. Recalculate now, below, forces a fresh pass and stamps the time.")
     if up is not None:
         try:
             st.session_state["data"] = read_template(up)
@@ -336,6 +342,13 @@ else:
         st.session_state["ovr"] = {}
 st.sidebar.download_button("⬇ Blank input template", blank_template(), "BlankSlate_input_template.xlsx",
                            help="Fill this file for any listed company and upload it here.")
+# The calculator is reactive: every input change recalculates on its own. This button forces a
+# fresh pass and stamps the time, so a reader can see the valuation being produced rather than
+# having to take it on trust. It is deliberately not called "Run": nothing here waits for it, and
+# a button that implied otherwise would be false the moment it was pressed.
+_recalc = st.sidebar.button("↻ Recalculate now", type="primary", width="stretch",
+                            help="Not required: the valuation already recalculates on every "
+                                 "change. Press it to force a fresh pass and stamp the time.")
 
 d = st.session_state.get("data")
 if not d:
@@ -381,6 +394,9 @@ except Exception as e:  # noqa: BLE001
     st.stop()
 
 rec, fv, dec = o["recommendation"], o["fair_value"] or {}, o["decision"]
+calc_at = dt.datetime.now().strftime("%H:%M:%S")
+if _recalc:
+    st.toast(f"Recalculated at {calc_at} — {rec['call']} {fmt(rec.get('upside'), pct=True)}")
 tabs = st.tabs(["Dashboard", "Data & history", "Assumptions", "Intrinsic value", "Relative value",
                 "Method selection", "Scenarios & sensitivity", "Key risks", "Checks", "Export", "Guide"])
 
@@ -396,6 +412,8 @@ with tabs[0]:
             f"<div class='f'>{fmt(up, pct=True) if up is not None else ''} &nbsp;·&nbsp; "
             f"confidence {rec.get('confidence') or '–'}</div></div>", unsafe_allow_html=True)
         st.caption(rec["rationale"])
+        st.caption(f"Calculated at {calc_at} from the inputs now on screen. "
+                   f"Every change recalculates it again.")
     with c2:
         k = st.columns(4)
         kpi(k[0], "Market price", fmt(o["price"], dec=0))
