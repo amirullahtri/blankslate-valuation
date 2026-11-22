@@ -71,6 +71,199 @@ h1, h2, h3 {{color:{INK};}}
 [data-testid="stDataFrame"] {{border:1px solid {BORDER}; border-radius:8px;}}
 </style>""", unsafe_allow_html=True)
 
+# The in-application user guide. It lives here, not in a separate file, so the Guide tab
+# cannot go blank because one file of a deployment was missed. build_package.py writes it
+# out to the submission package from this string, so there is one source of truth.
+APP_GUIDE = """# How to use this calculator
+
+This is a blank valuation calculator. It holds no logic specific to any one company: it values
+whichever company you load, by the same rules, and it shows you the rule behind every number it
+produces. You can read a result in a minute, or audit how it was reached.
+
+Nothing here is a recommendation to buy or sell anything. The calculator applies stated rules to
+the data you give it; the judgement about whether those rules and that data suit your purpose
+remains yours.
+
+---
+
+## 1. Load a company
+
+The sidebar is where data comes in, and there are three ways.
+
+**A built-in example.** Five are loaded and need nothing from you. **ICBP** is the company the
+accompanying report analyses. **BBCA** is a bank, carried to show the calculator switching to a
+different valuation model on its own. The three synthetic cases are a stable consumer-staples
+firm, a loss-making growth platform, and a bank. Move between them and watch the method weights
+on the Dashboard change without you touching anything: that is the decision engine working.
+
+**Your own company.** Press **Blank input template** in the sidebar, fill the file, then switch
+the data source to *Open project / upload template* and upload it. The template has one sheet per
+kind of input and tells you the units it expects.
+
+**A project you saved earlier.** The Export tab writes a project file that carries your inputs,
+your overrides and your settings. Upload it the same way and you resume exactly where you stopped.
+
+### The minimum the calculator needs
+
+It will not compute until these are present, and it tells you which are missing rather than
+guessing:
+
+| Group | Fields |
+|---|---|
+| Company | name, sector, currency, unit, shares, share unit, share price, valuation date |
+| Financials | revenue, EBIT, net income, equity attributable to parent, cash, total debt |
+| Market | risk-free rate, equity risk premium |
+
+Everything else is optional. Where an optional input is absent the calculator derives a default
+and names the rule it used, so a sparse input file still produces a result you can trace.
+
+---
+
+## 2. Read the answer
+
+**Dashboard** is the whole valuation on one screen.
+
+The coloured card carries the call, the upside against the market price, and a confidence level.
+The four cards beside it are the market price, the central fair value, the upside, and the
+fair-value range.
+
+The **football field** underneath is the part worth your attention. Each bar is one method's
+range, the dot inside it is that method's central value, and the dashed line is the market price.
+A market price sitting outside every bar is telling you something; so is one method disagreeing
+with the rest.
+
+The donut shows how the two approaches were weighted, and the panel beside it shows what the
+market price implies — the growth rate the company would have to deliver to be worth today's
+price. Where no growth rate in the search range can reach the price, the calculator says so
+plainly instead of returning a number it cannot stand behind.
+
+### What the call means
+
+By default a **BUY** needs upside of 15% or more, a **SELL** needs downside of 15% or more, and
+anything between is a **HOLD**. Both thresholds are yours to change, under *Recommendation &
+scenario settings* in the sidebar.
+
+Confidence is not a feeling. It falls when the checks raise warnings, when the terminal value
+carries most of the enterprise value, or when the two approaches disagree widely.
+
+**A validation error blocks the recommendation entirely.** The calculator will not issue a call on
+data it believes is wrong.
+
+---
+
+## 3. Change what you disagree with
+
+Every assumption starts from a default the calculator derived from your data, and every default
+shows the rule that produced it.
+
+**Assumptions** lists them. Tick *override* on any line and type your own value; the engine's
+default stays on screen beside yours, so the disagreement is visible rather than buried. The
+Dashboard, the scenarios and the recommendation recalculate at once.
+
+What you can override: the first-year growth rate, terminal growth, the target operating margin,
+sales-to-capital, terminal ROIC, the effective tax rate and the terminal beta — and for a
+financial firm, the starting and terminal ROE and the payout ratio. You can also override the
+discount-rate inputs directly: the risk-free rate, the equity and country risk premiums, beta, the
+pre-tax cost of debt, the marginal tax rate and the target debt ratio.
+
+You can also override **the method weight itself**, at the bottom of the same tab, if you disagree
+with how the calculator split the two approaches.
+
+**Data & history** is where you change the data rather than the assumptions: the share price, the
+share count, the valuation date, and the date the peer prices were taken. Changing the price
+alone is the fastest way to see where the recommendation flips.
+
+---
+
+## 4. Follow the reasoning
+
+These tabs exist so you need not take any number on trust.
+
+**Intrinsic value** shows the ten-year forecast year by year, and the bridge from enterprise value
+to equity value: cash and non-operating assets added, debt, leases and minority interest deducted.
+Watch the terminal value's share of enterprise value. Above roughly three quarters, the valuation
+is mostly a statement about the far future.
+
+**Relative value** shows every multiple, how many peers survived the filters, and why each
+excluded peer was dropped. A peer with a non-positive denominator is excluded. Where at least five
+peers remain, outliers beyond 1.5 times the interquartile range are excluded. A multiple is used
+only if at least three valid peers remain and the company's own metric is positive. Enterprise
+multiples are converted to equity value using the same net claims as the cash-flow model, so the
+two approaches cannot quietly disagree about the balance sheet.
+
+**Method selection** is the decision engine, exposed. Six factors are measured from the data — not
+chosen by hand — and each tilts from −2, meaning trust the multiples, to +2, meaning trust the
+cash flows. The weight on the intrinsic approach is then
+
+```
+weight = 50% + 5% × (sum of the six tilts),  held between 20% and 80%
+```
+
+The table shows each factor's measurement, so you can see what produced each tilt.
+
+**Scenarios & sensitivity** gives a bear, base and bull case with probabilities you control, and
+two grids: value against discount rate and terminal growth, and value against first-year growth
+and target margin. The grids tell you how fragile the answer is far faster than re-running it.
+
+**Key risks** solves each risk backwards: the level at which the recommendation would reverse. A
+break-even is more useful than a worry, because you can judge whether that level is plausible.
+
+---
+
+## 5. Check before you trust it
+
+**Checks** lists everything the calculator noticed, at three severities. Errors block the
+recommendation. Warnings do not, but each one names something a reader could reasonably challenge.
+
+Three are worth understanding because they catch the mistakes that most often spoil a comparable
+valuation:
+
+- **Peer prices on a different date from the valuation date.** The comparison is then between two
+  different markets. The calculator requires the dates to be equal, not merely close.
+- **Terminal growth above the risk-free rate.** A company cannot grow faster than the economy
+  forever; the risk-free rate is the practical ceiling.
+- **An enterprise-to-equity bridge that does not reconcile.** The commonest source of a wrong
+  per-share value.
+
+---
+
+## 6. Take it with you
+
+**Export** writes four things: a results workbook with the summary, the method trace, the
+intrinsic table, the relative valuation, the checks and the assumptions used; a project file that
+restores this session; the full result as JSON; and a spreadsheet engine pre-filled with the
+company on screen.
+
+---
+
+## 7. What this calculator cannot do
+
+It values a going concern from reported figures. It does not know anything the statements do not
+contain — a pending acquisition, a regulatory change, a key customer about to leave. Those belong
+on the Risks sheet of the input template, where you can enter them yourself; they then appear on
+the Key risks tab beside the calculated ones.
+
+It cannot tell you that the data you gave it is the wrong data. The checks catch inconsistency,
+not inaccuracy.
+
+And it cannot price a control premium, a liquidity discount or a holding-company discount. Where
+the market price sits far from the calculated value and no plausible operating assumption closes
+the gap, a structural factor of that kind is usually the explanation, and it falls outside the
+model.
+
+---
+
+## 8. If something looks wrong
+
+| What you see | What it means |
+|---|---|
+| "Cannot calculate yet. Missing required inputs" | A field from the table in section 1 is blank. The message names each one. |
+| A multiple shows "not usable" | Fewer than three peers survived the filters, or the company's own metric is not positive. The Relative value tab names every exclusion. |
+| The recommendation is withheld | A check at error severity is active. Open the Checks tab. |
+| No implied growth rate on the Dashboard | No growth path in the search range reproduces the market price. The Key risks tab solves on the discount rate instead. |
+| The value moves a long way for a small change | Look at the terminal value's share of enterprise value on the Intrinsic value tab, and at the sensitivity grids. |
+"""
+
 PCT_KEYS = {"g1", "g_terminal", "target_margin", "roic_terminal", "eff_tax_start", "roe_start", "roe_terminal", "payout"}
 
 
@@ -495,42 +688,7 @@ with tabs[9]:
 
 # ------------------------------------------------------------------ guide
 with tabs[10]:
-    st.subheader("Guide")
-    st.caption("Operating instructions for this application. These are the sections of the user "
-               "guide that apply to the web application; the full guide, which also covers the "
-               "Excel engine used to verify these results, ships as USER_GUIDE.pdf in the "
-               "submission package.")
-
-    # Sections that describe the Excel engine are dropped here. The Excel workbook is this
-    # project's verification instrument, not a route a reader of this application needs, and
-    # setup instructions for a file that is not on screen only mislead.
-    _DROP = ("option a — excel workbook", "option a - excel workbook", "in the workbook")
-
-    def _app_only(md):
-        out, skip, skip_level = [], False, 0
-        for line in md.split("\n"):
-            if line.startswith("#"):
-                level = len(line) - len(line.lstrip("#"))
-                head = line.lstrip("# ").strip().lower()
-                if skip and level <= skip_level:
-                    skip = False
-                if not skip and any(head.startswith(p) for p in _DROP):
-                    skip, skip_level = True, level
-                    continue
-                if not skip and head.startswith(("option b", "in the application")):
-                    # With the Excel route gone, "Option B" and "In the application" no longer
-                    # contrast with anything, so give them names that stand on their own.
-                    line = "#" * level + (" Running the application" if head.startswith("option b")
-                                          else " Updating the data")
-            if not skip:
-                out.append(line)
-        # Two troubleshooting rows refer to macros; they cannot apply here.
-        return "\n".join(l for l in out
-                         if not (l.startswith("|") and ("Macros" in l or "Refresh all" in l)))
-
-    _gp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "USER_GUIDE.md")
-    try:
-        with open(_gp, encoding="utf-8") as _f:
-            st.markdown(_app_only(_f.read()))
-    except OSError:
-        st.warning("USER_GUIDE.md not found next to the application; see the submission package.")
+    # Written for whoever has this application open. Someone reading this tab is already inside
+    # the tool, so it covers using it, never installing or reaching it. Setup, access and the
+    # Excel engine belong to USER_GUIDE.md, which ships with the submission package.
+    st.markdown(APP_GUIDE)
