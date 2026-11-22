@@ -145,14 +145,13 @@ remains yours.
 
 The sidebar is where data comes in, and there are three ways.
 
-**A built-in example.** Five are loaded and need nothing from you. **ICBP** is the company the
+**An example company.** Five are loaded and need nothing from you. They are demonstrations, not the limit of what the calculator accepts. **ICBP** is the company the
 accompanying report analyses. **BBCA** is a bank, carried to show the calculator switching to a
 different valuation model on its own. The three synthetic cases are a stable consumer-staples
 firm, a loss-making growth platform, and a bank. Move between them and watch the method weights
 on the Dashboard change without you touching anything: that is the decision engine working.
 
-**Your own company.** Press **Blank input template** in the sidebar, fill the file, then switch
-the data source to *Open project / upload template* and upload it. The template has one sheet per
+**Any other company.** Press **Blank input template** in the sidebar, fill the file, then switch the company source to *Any company — upload a filled template* and upload it. Any listed company on any exchange works; nothing in the engine is specific to a market or a sector. The template has one sheet per
 kind of input and tells you the units it expects.
 
 **A project you saved earlier.** The Export tab writes a project file that carries your inputs,
@@ -360,8 +359,16 @@ def preflight(d):
 st.sidebar.title("📐 BlankSlate")
 st.sidebar.caption("A blank valuation calculator: load any company's data, get DCF + relative valuation, "
                    "a rule-based method choice and a recommendation.")
-src = st.sidebar.radio("Data source", ["Open project / upload template", "Built-in example"], index=1)
-if src == "Open project / upload template":
+# Labelled as the company chooser, because that is what a reader is looking for. The upload
+# route is named for what it can do — any listed company — so the built-in cases are not
+# mistaken for the limit of what the calculator accepts.
+st.sidebar.markdown("**Company**")
+src = st.sidebar.radio(
+    "Company", ["Any company — upload a filled template", "Example company (demonstration)"],
+    index=1, label_visibility="collapsed")
+st.sidebar.caption("This calculator holds no company-specific logic. The examples are "
+                   "demonstrations; the template values any listed company, on any exchange.")
+if src.startswith("Any company"):
     up = st.sidebar.file_uploader("Filled template or saved project (.xlsx)", type=["xlsx", "xlsm"])
     st.sidebar.caption("The valuation recalculates the moment the file is read — you do not have "
                        "to start it. Recalculate now, below, forces a fresh pass and stamps the time.")
@@ -390,7 +397,7 @@ else:
     lead = ["ICBP", "BBCA"]
     names = sorted(list(examples.EXAMPLES),
                    key=lambda n: (next((i for i, p in enumerate(lead) if n.startswith(p)), 9), n))
-    pick = st.sidebar.selectbox("Example company", names)
+    pick = st.sidebar.selectbox("Choose an example", names)
     if st.session_state.get("data_name") != pick:
         st.session_state["data"] = copy.deepcopy(examples.EXAMPLES[pick])
         st.session_state["data_name"] = pick
@@ -428,7 +435,7 @@ with st.sidebar.expander("Recommendation & scenario settings"):
 missing = preflight(d)
 m = d["meta"]
 _dn = st.session_state.get("data_name") or ""
-esc_src = (f"uploaded file &ldquo;{_dn}&rdquo;" if src.startswith("Open project")
+esc_src = (f"uploaded file &ldquo;{_dn}&rdquo;" if src.startswith("Any company")
            else f"built-in example &ldquo;{_dn}&rdquo;")
 st.markdown(
     f"<div class='band'><div class='t'>BLANKSLATE</div>"
