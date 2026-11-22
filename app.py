@@ -27,7 +27,10 @@ TEAL, ORANGE, RED, GREY = PAPRIKA, GOLD, PETROL, TAUPE
 
 pio.templates["blankslate"] = go.layout.Template(layout=dict(
     font=dict(color=INK, size=12),
-    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+    # White panels rather than transparent: a transparent chart inherits the viewer's theme
+    # background, and ink axis labels then sit on a dark ground. A self-contained panel reads
+    # the same whichever theme is chosen, and matches the white cards elsewhere.
+    paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
     colorway=[PAPRIKA, OLIVE, PETROL, GOLD, STONE, TAUPE],
     xaxis=dict(gridcolor="#E2D9C9", zerolinecolor=BORDER, linecolor=BORDER),
     yaxis=dict(gridcolor="#E2D9C9", zerolinecolor=BORDER, linecolor=BORDER),
@@ -38,7 +41,6 @@ pio.templates.default = "blankslate"
 st.markdown(f"""
 <style>
 .block-container {{padding-top: 1.2rem;}}
-h1, h2, h3 {{color:{INK};}}
 
 /* The page header: one solid block of ink, the way every slide in the deck opens. */
 .band {{background:{INK}; border-radius:12px; padding:18px 22px 16px 22px; margin-bottom:14px;}}
@@ -53,6 +55,35 @@ h1, h2, h3 {{color:{INK};}}
 .call .c {{font-size:2.5rem; font-weight:800; line-height:1;}}
 .call .f {{font-size:.82rem; opacity:.88; margin-top:4px;}}
 
+/* Dashboard cards. Each one carries a small visual of its own, so a figure arrives with the
+   context that makes it mean something: where the price sits inside the fair-value range, which
+   way revenue has gone, how the two approaches were weighted. Every card sets its own background
+   and text colour, so it reads the same in a light or a dark theme. */
+.dgrid {{display:grid; grid-template-columns:1.25fr 1fr 1fr 1fr; gap:12px; margin-bottom:6px;}}
+.dc {{background:#FFFFFF; border:1px solid {BORDER}; border-radius:12px; padding:14px 16px;
+      color:{INK};}}
+.dc .l {{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:{STONE};}}
+.dc .v {{font-size:25px; font-weight:800; margin-top:3px; white-space:nowrap;
+         font-variant-numeric:tabular-nums;}}
+.dc .ft {{font-size:10.5px; color:{STONE}; margin-top:6px; line-height:1.35;}}
+.dc.verdict {{display:flex; flex-direction:column; justify-content:center; color:#FFFFFF;}}
+.dc.verdict .l {{color:#F2CFC2;}}  .dc.verdict .v {{color:#FFFFFF; font-size:42px; line-height:1;}}
+.dc.verdict .ft {{color:#F2CFC2; font-size:11.5px;}}
+.scale {{position:relative; height:9px; border-radius:5px; margin-top:11px;
+         background:linear-gradient(90deg,#E6B6A3,{PAPRIKA});}}
+.scale b {{position:absolute; top:-4px; width:3px; height:17px; background:{INK};
+           border-radius:2px;}}
+.sbars {{display:flex; align-items:flex-end; gap:5px; height:38px; margin-top:9px;}}
+.sbars i {{flex:1; background:#E3D9C9; border-radius:2px 2px 0 0;}}
+.sbars i.hi {{background:{PAPRIKA};}}
+.ring {{float:right; margin-top:-30px;}}
+/* The six factors, compact, beside the football field: the decision rule in one glance. */
+.tf {{display:flex; align-items:center; gap:9px; margin-bottom:7px; font-size:11.5px;
+      color:{INK};}}
+.tf .id {{width:112px; color:{STONE};}}
+.tf .tk {{position:relative; flex:1; height:9px; background:#E3D9C9; border-radius:5px;}}
+.tf .tk b {{position:absolute; top:0; height:9px; border-radius:5px;}}
+.tf .tv {{width:26px; text-align:right; font-weight:700;}}
 .kpi {{background:#FFFFFF; border:1px solid {BORDER}; border-radius:10px; padding:12px 14px;
        height:100%;}}
 .kpi .l {{font-size:.72rem; color:{STONE}; text-transform:uppercase; letter-spacing:.03em;
@@ -64,11 +95,19 @@ h1, h2, h3 {{color:{INK};}}
 
 /* Tabs: the active one is marked by the accent, not by a grey box. */
 .stTabs [data-baseweb="tab-list"] {{gap:2px; border-bottom:1px solid {BORDER};}}
-.stTabs [data-baseweb="tab"] {{padding:8px 14px; color:{STONE};}}
+.stTabs [data-baseweb="tab"] {{padding:8px 14px;}}
+/* Paprika carries enough contrast on both a cream and a near-black ground, so the active tab
+   is marked the same way in either theme. */
 .stTabs [aria-selected="true"] {{color:{PAPRIKA} !important; font-weight:700;
                                  border-bottom:3px solid {PAPRIKA};}}
-[data-testid="stSidebar"] {{background:{SAND};}}
 [data-testid="stDataFrame"] {{border:1px solid {BORDER}; border-radius:8px;}}
+
+/* Tints below assume a light page. They are applied only to a viewer in a light colour scheme;
+   a viewer in dark keeps Streamlit's own surfaces, which already carry readable text. */
+@media (prefers-color-scheme: light) {{
+  [data-testid="stSidebar"] {{background:{SAND};}}
+  .stTabs [data-baseweb="tab"] {{color:{STONE};}}
+}}
 </style>""", unsafe_allow_html=True)
 
 # The in-application user guide. It lives here, not in a separate file, so the Guide tab
@@ -403,23 +442,65 @@ tabs = st.tabs(["Dashboard", "Data & history", "Assumptions", "Intrinsic value",
 # ------------------------------------------------------------------ dashboard
 with tabs[0]:
     color = {"BUY": PAPRIKA, "HOLD": GOLD, "SELL": PETROL}.get(rec["call"], TAUPE)
-    c1, c2 = st.columns([1.1, 2.4])
-    with c1:
-        up = rec.get("upside")
-        st.markdown(
-            f"<div class='call' style='background:{color}'>"
-            f"<div class='c'>{rec['call']}</div>"
-            f"<div class='f'>{fmt(up, pct=True) if up is not None else ''} &nbsp;·&nbsp; "
-            f"confidence {rec.get('confidence') or '–'}</div></div>", unsafe_allow_html=True)
-        st.caption(rec["rationale"])
-        st.caption(f"Calculated at {calc_at} from the inputs now on screen. "
-                   f"Every change recalculates it again.")
-    with c2:
-        k = st.columns(4)
-        kpi(k[0], "Market price", fmt(o["price"], dec=0))
-        kpi(k[1], "Fair value (central)", fmt(fv.get("central")))
-        kpi(k[2], "Upside / downside", fmt(rec.get("upside"), pct=True))
-        kpi(k[3], "Fair-value range", f"{fmt(fv.get('low'))} – {fmt(fv.get('high'))}")
+
+    # Card 2: where the market price sits inside the fair-value range. Clamped, because a price
+    # outside the range is exactly the case worth showing at the edge rather than off the card.
+    _lo, _hi = fv.get("low"), fv.get("high")
+    if _lo is not None and _hi is not None and _hi > _lo:
+        _raw = (o["price"] - _lo) / (_hi - _lo)
+        _pos = min(max(_raw, 0.0), 1.0) * 100
+        # A clamped marker sits on the edge, which would read as "just inside". Say which it is.
+        _where = ("price is below the whole range" if _raw < 0 else
+                  "price is above the whole range" if _raw > 1 else
+                  f"price sits {_raw:.0%} of the way up the range")
+        _scale = (f"<div class='scale'><b style='left:calc({_pos:.1f}% - 1.5px)'></b></div>"
+                  f"<div class='ft'>fair {fmt(fv.get('central'))} · range {fmt(_lo)} – {fmt(_hi)}"
+                  f"<br>{_where}</div>")
+    else:
+        _scale = "<div class='ft'>No fair-value range available.</div>"
+
+    # Card 3: the top line over the periods loaded, newest highlighted.
+    _rows = o["history"]["rows"]
+    _series = [r.get("revenue") for r in _rows if r.get("revenue") is not None]
+    if _series and max(_series) > 0:
+        _mx = max(_series)
+        _bars = "".join(
+            f"<i class='hi' style='height:{v/_mx*100:.0f}%'></i>" if i == len(_series) - 1
+            else f"<i style='height:{max(v/_mx*100, 3):.0f}%'></i>"
+            for i, v in enumerate(_series))
+        _unit = _num(m.get("unit")) or 1
+        _latest = _series[-1] * _unit
+        _big = (f"{_latest/1e12:,.1f}T" if _latest >= 1e12 else
+                f"{_latest/1e9:,.1f}B" if _latest >= 1e9 else f"{_series[-1]:,.0f}")
+        _rev_card = (f"<div class='l'>Revenue, {len(_series)} periods</div><div class='v'>{_big}</div>"
+                     f"<div class='sbars'>{_bars}</div>")
+    else:
+        _rev_card = "<div class='l'>Revenue history</div><div class='v'>–</div>"
+
+    # Card 4: the weight split, as a ring. The dash array is the split itself.
+    _wi = dec["w_intrinsic"] * 100
+    _ring = (f"<svg class='ring' width='58' height='58' viewBox='0 0 42 42' aria-hidden='true'>"
+             f"<circle cx='21' cy='21' r='16' fill='none' stroke='#E3D9C9' stroke-width='7'/>"
+             f"<circle cx='21' cy='21' r='16' fill='none' stroke='{PAPRIKA}' stroke-width='7'"
+             f" stroke-dasharray='{_wi:.0f} {100-_wi:.0f}' stroke-dashoffset='25'"
+             f" transform='rotate(-90 21 21)'/></svg>")
+
+    st.markdown(f"""
+<div class="dgrid">
+  <div class="dc verdict" style="background:{color};border-color:{color}">
+    <div class="l">Recommendation</div><div class="v">{rec['call']}</div>
+    <div class="ft">{fmt(rec.get('upside'), pct=True)} &nbsp;·&nbsp; confidence
+      {rec.get('confidence') or '–'}</div></div>
+  <div class="dc"><div class="l">Price vs fair value</div>
+    <div class="v">{fmt(o['price'])}</div>{_scale}</div>
+  <div class="dc">{_rev_card}</div>
+  <div class="dc"><div class="l">Method weight</div>
+    <div class="v">{dec['w_intrinsic']:.0%} / {dec['w_relative']:.0%}</div>{_ring}
+    <div class="ft">intrinsic {dec['w_intrinsic']:.0%} · relative {dec['w_relative']:.0%}<br>
+      total tilt {dec['total_tilt']:+d}</div></div>
+</div>""", unsafe_allow_html=True)
+    st.caption(f"{rec['rationale']}  Calculated at {calc_at} from the inputs now on screen; "
+               f"every change recalculates it.")
     errs = [c for c in o["checks"] if c["severity"] == "ERROR"]
     warns = [c for c in o["checks"] if c["severity"] == "WARNING"]
     if errs:
@@ -447,7 +528,30 @@ with tabs[0]:
     fig.add_vline(x=o["price"], line_dash="dash", line_color=RED, annotation_text=f"Price {o['price']:,.0f}", annotation_position="top")
     fig.update_layout(title="Valuation football field (value per share)", height=110 + 46 * len(bars),
                       margin=dict(l=10, r=10, t=50, b=10), yaxis=dict(autorange="reversed"), plot_bgcolor="white")
-    st.plotly_chart(fig, width='stretch')
+
+    # The field and the rule that produced the weights, side by side. Seeing the six measured
+    # factors next to the spread they govern is the whole argument of this model on one screen;
+    # the full trace, with each factor's measurement, stays on the Method selection tab.
+    f1, f2 = st.columns([1.65, 1])
+    with f1:
+        st.plotly_chart(fig, width='stretch')
+    with f2:
+        st.markdown(f"<div style='font:700 14px Cambria;margin:6px 0 10px'>"
+                    f"Why the weights fell {dec['w_intrinsic']:.0%} / {dec['w_relative']:.0%}</div>",
+                    unsafe_allow_html=True)
+        _tf = []
+        for _f in dec["factors"]:
+            _t = _f["tilt"]
+            _c = PAPRIKA if _t > 0 else PETROL if _t < 0 else TAUPE
+            _w = abs(_t) / 2 * 44
+            _left = 50 if _t >= 0 else 50 - _w
+            _tf.append(f"<div class='tf'><span class='id' title=\"{_f['name']}\">{_f['id']} "
+                       f"{_f['name'][:22]}</span><span class='tk'>"
+                       f"<b style='left:{_left:.0f}%;width:{_w:.0f}%;background:{_c}'></b></span>"
+                       f"<span class='tv' style='color:{_c}'>{_t:+d}</span></div>")
+        st.markdown("".join(_tf), unsafe_allow_html=True)
+        st.caption("Each factor is measured from the data, not chosen. "
+                   "← favours multiples · favours cash flows →")
 
     c3, c4 = st.columns(2)
     with c3:
@@ -543,7 +647,7 @@ with tabs[2]:
     for k in keys:
         dflt = o["defaults"].get(k)
         c1, c2, c3, c4 = st.columns([2.3, 1.2, .8, 1.4])
-        c1.write(f"**{labels.get(k, k)}**  \n<span style='color:#56666C;font-size:.8rem'>{o['assumption_sources'].get(k, 'market input')}</span>",
+        c1.write(f"**{labels.get(k, k)}**  \n<span style='opacity:.70;font-size:.8rem'>{o['assumption_sources'].get(k, 'market input')}</span>",
                  unsafe_allow_html=True)
         c2.write(f"default: {fmt(dflt, pct=k in pct_like, dec=2) if isinstance(dflt, (int, float)) else dflt}")
         on = c3.checkbox("override", value=k in ovr, key=f"chk_{k}")
