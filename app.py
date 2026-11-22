@@ -496,11 +496,41 @@ with tabs[9]:
 # ------------------------------------------------------------------ guide
 with tabs[10]:
     st.subheader("Guide")
-    st.caption("Operating instructions for this calculator. The same text ships as the user guide "
-               "in the submission package.")
+    st.caption("Operating instructions for this application. These are the sections of the user "
+               "guide that apply to the web application; the full guide, which also covers the "
+               "Excel engine used to verify these results, ships as USER_GUIDE.pdf in the "
+               "submission package.")
+
+    # Sections that describe the Excel engine are dropped here. The Excel workbook is this
+    # project's verification instrument, not a route a reader of this application needs, and
+    # setup instructions for a file that is not on screen only mislead.
+    _DROP = ("option a — excel workbook", "option a - excel workbook", "in the workbook")
+
+    def _app_only(md):
+        out, skip, skip_level = [], False, 0
+        for line in md.split("\n"):
+            if line.startswith("#"):
+                level = len(line) - len(line.lstrip("#"))
+                head = line.lstrip("# ").strip().lower()
+                if skip and level <= skip_level:
+                    skip = False
+                if not skip and any(head.startswith(p) for p in _DROP):
+                    skip, skip_level = True, level
+                    continue
+                if not skip and head.startswith(("option b", "in the application")):
+                    # With the Excel route gone, "Option B" and "In the application" no longer
+                    # contrast with anything, so give them names that stand on their own.
+                    line = "#" * level + (" Running the application" if head.startswith("option b")
+                                          else " Updating the data")
+            if not skip:
+                out.append(line)
+        # Two troubleshooting rows refer to macros; they cannot apply here.
+        return "\n".join(l for l in out
+                         if not (l.startswith("|") and ("Macros" in l or "Refresh all" in l)))
+
     _gp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "USER_GUIDE.md")
     try:
         with open(_gp, encoding="utf-8") as _f:
-            st.markdown(_f.read())
+            st.markdown(_app_only(_f.read()))
     except OSError:
         st.warning("USER_GUIDE.md not found next to the application; see the submission package.")
