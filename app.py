@@ -13,7 +13,7 @@ import streamlit as st
 from engine import run, SECTORS, DEFAULT_SETTINGS as DS
 from engine.core import _num
 from engine.io import blank_template, read_template, export_results, ASSUMPTION_FIELDS
-from engine.checks import REQUIRED_META, REQUIRED_FIN, REQUIRED_MKT
+from engine.checks import REQUIRED_META, REQUIRED_FIN, REQUIRED_MKT, CHECK_CODES
 
 st.set_page_config(page_title="BlankSlate Valuation Calculator", page_icon="📐", layout="wide")
 
@@ -264,7 +264,7 @@ break-even is more useful than a worry, because you can judge whether that level
 
 ## 5. Check before you trust it
 
-**Checks** lists everything the calculator noticed, at three severities. Errors block the
+**Validation** lists everything the calculator noticed, at three severities. Errors block the
 recommendation. Warnings do not, but each one names something a reader could reasonably challenge.
 
 Three are worth understanding because they catch the mistakes that most often spoil a comparable
@@ -311,7 +311,7 @@ model.
 |---|---|
 | "Cannot calculate yet. Missing required inputs" | A field from the table in section 1 is blank. The message names each one. |
 | A multiple shows "not usable" | Fewer than three peers survived the filters, or the company's own metric is not positive. The Relative value tab names every exclusion. |
-| The recommendation is withheld | A check at error severity is active. Open the Checks tab. |
+| The recommendation is withheld | A check at error severity is active. Open the Validation tab. |
 | No implied growth rate on the Dashboard | No growth path in the search range reproduces the market price. The Key risks tab solves on the discount rate instead. |
 | The value moves a long way for a small change | Look at the terminal value's share of enterprise value on the Intrinsic value tab, and at the sensitivity grids. |
 """
@@ -437,7 +437,7 @@ calc_at = dt.datetime.now().strftime("%H:%M:%S")
 if _recalc:
     st.toast(f"Recalculated at {calc_at} — {rec['call']} {fmt(rec.get('upside'), pct=True)}")
 tabs = st.tabs(["Dashboard", "Data & history", "Assumptions", "Intrinsic value", "Relative value",
-                "Method selection", "Scenarios & sensitivity", "Key risks", "Checks", "Export", "Guide"])
+                "Method selection", "Scenarios & sensitivity", "Key risks", "Validation", "Export", "Guide"])
 
 # ------------------------------------------------------------------ dashboard
 with tabs[0]:
@@ -503,10 +503,18 @@ with tabs[0]:
                f"every change recalculates it.")
     errs = [c for c in o["checks"] if c["severity"] == "ERROR"]
     warns = [c for c in o["checks"] if c["severity"] == "WARNING"]
+    _ntot = len(CHECK_CODES)
     if errs:
-        st.error(f"{len(errs)} error(s) block the recommendation. See the Checks tab.")
+        st.error(f"**Validation: {len(errs)} error(s)** block the recommendation, and "
+                 f"{len(warns)} warning(s) stand. {_ntot} checks were run. Open the Validation tab.")
     elif warns:
-        st.warning(f"{len(warns)} warning(s). See the Checks tab.")
+        st.warning(f"**Validation: {len(warns)} warning(s)** — the recommendation stands, but each "
+                   f"warning names something a reader could challenge. {_ntot} checks were run. "
+                   f"Open the Validation tab.")
+    else:
+        st.success(f"**Validation: all {_ntot} checks passed** — no missing inputs, no unit "
+                   f"mismatch, terminal growth within bounds, every multiple valid, and the "
+                   f"enterprise-to-equity bridge reconciles.")
 
     # football field
     sc, comp = o["scenarios"], o["relative"]["composite"] or {}
@@ -801,6 +809,10 @@ with tabs[7]:
 # ------------------------------------------------------------------ checks
 with tabs[8]:
     st.subheader("Validation checks")
+    st.caption("Thirty rules run on every calculation: missing inputs, inconsistent units, "
+               "implausible terminal growth, unusable multiples, and the enterprise-to-equity "
+               "reconciliation. Errors block the recommendation; warnings do not, but each one "
+               "names something a reader could reasonably challenge.")
     for sev, fn in (("ERROR", st.error), ("WARNING", st.warning), ("INFO", st.info)):
         items = [c for c in o["checks"] if c["severity"] == sev]
         if items:
