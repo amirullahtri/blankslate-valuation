@@ -55,8 +55,12 @@ h1, h2, h3 {{color:{INK};}}
 
 .kpi {{background:#FFFFFF; border:1px solid {BORDER}; border-radius:10px; padding:12px 14px;
        height:100%;}}
-.kpi .l {{font-size:.74rem; color:{STONE}; text-transform:uppercase; letter-spacing:.05em;}}
-.kpi .v {{font-size:1.45rem; font-weight:700; color:{INK}; margin-top:2px;}}
+.kpi .l {{font-size:.72rem; color:{STONE}; text-transform:uppercase; letter-spacing:.03em;
+          line-height:1.2;}}
+/* A price must never break across two lines: "1,500" split after the comma reads as two numbers.
+   The figure stays on one line and shrinks with the viewport instead. */
+.kpi .v {{font-size:clamp(.88rem, .78vw + .42rem, 1.45rem); font-weight:700; color:{INK};
+          margin-top:3px; white-space:nowrap; font-variant-numeric:tabular-nums;}}
 
 /* Tabs: the active one is marked by the accent, not by a grey box. */
 .stTabs [data-baseweb="tab-list"] {{gap:2px; border-bottom:1px solid {BORDER};}}
@@ -106,7 +110,12 @@ if src == "Open project / upload template":
             st.sidebar.error(f"Could not read the template: {e}")
 else:
     import examples
-    names = list(examples.EXAMPLES)
+    # The two real companies lead, so the application opens on the company the report is about
+    # rather than on a synthetic case. The synthetic cases follow; they exist to show the method
+    # selection switching, not to be the first thing a reader sees.
+    lead = ["ICBP", "BBCA"]
+    names = sorted(list(examples.EXAMPLES),
+                   key=lambda n: (next((i for i, p in enumerate(lead) if n.startswith(p)), 9), n))
     pick = st.sidebar.selectbox("Example company", names)
     if st.session_state.get("data_name") != pick:
         st.session_state["data"] = copy.deepcopy(examples.EXAMPLES[pick])
