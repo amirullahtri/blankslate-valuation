@@ -13,7 +13,23 @@ import streamlit as st
 from engine import run, SECTORS, DEFAULT_SETTINGS as DS
 from engine.core import _num
 from engine.io import blank_template, read_template, export_results, ASSUMPTION_FIELDS
-from engine.checks import REQUIRED_META, REQUIRED_FIN, REQUIRED_MKT, CHECK_CODES
+from engine.checks import REQUIRED_META, REQUIRED_FIN, REQUIRED_MKT
+
+# How many validation rules exist, stated without hard-coding a number that would drift.
+# Imported when the engine exposes it; otherwise read off the module's own source. The
+# application must not fail to start because one module is a version behind, so the last
+# resort is to say nothing about the count rather than to raise.
+try:
+    from engine.checks import CHECK_CODES
+except ImportError:  # engine.checks predates the constant
+    try:
+        import re as _re
+        from engine import checks as _chk
+        with open(_chk.__file__, encoding="utf-8") as _f:
+            CHECK_CODES = tuple(sorted(set(_re.findall(
+                r'add\(\s*"(?:ERROR|WARNING|INFO)"\s*,\s*"([A-Z0-9_]+)"', _f.read()))))
+    except Exception:  # noqa: BLE001
+        CHECK_CODES = ()
 
 st.set_page_config(page_title="BlankSlate Valuation Calculator", page_icon="📐", layout="wide")
 
@@ -504,15 +520,16 @@ with tabs[0]:
     errs = [c for c in o["checks"] if c["severity"] == "ERROR"]
     warns = [c for c in o["checks"] if c["severity"] == "WARNING"]
     _ntot = len(CHECK_CODES)
+    _nrun = f"{_ntot} checks were run. " if _ntot else "Every validation rule was run. "
     if errs:
         st.error(f"**Validation: {len(errs)} error(s)** block the recommendation, and "
-                 f"{len(warns)} warning(s) stand. {_ntot} checks were run. Open the Validation tab.")
+                 f"{len(warns)} warning(s) stand. {_nrun}Open the Validation tab.")
     elif warns:
         st.warning(f"**Validation: {len(warns)} warning(s)** — the recommendation stands, but each "
-                   f"warning names something a reader could challenge. {_ntot} checks were run. "
+                   f"warning names something a reader could challenge. {_nrun}"
                    f"Open the Validation tab.")
     else:
-        st.success(f"**Validation: all {_ntot} checks passed** — no missing inputs, no unit "
+        st.success(f"**Validation: all {_ntot or ''} checks passed** — no missing inputs, no unit "
                    f"mismatch, terminal growth within bounds, every multiple valid, and the "
                    f"enterprise-to-equity bridge reconciles.")
 
