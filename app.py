@@ -7,6 +7,7 @@ import json
 import os
 
 import plotly.graph_objects as go
+import plotly.io as pio
 import streamlit as st
 
 from engine import run, SECTORS, DEFAULT_SETTINGS as DS
@@ -16,14 +17,54 @@ from engine.checks import REQUIRED_META, REQUIRED_FIN, REQUIRED_MKT
 
 st.set_page_config(page_title="BlankSlate Valuation Calculator", page_icon="📐", layout="wide")
 
-INK, TEAL, ORANGE, RED, GREY = "#1F3A4D", "#17808C", "#D2601A", "#B33A3A", "#8A9AA5"
+# "Paprika & Ink" — the same palette as the deck, so the tool and the report read as one piece of
+# work. Each colour carries one meaning: paprika is our value, petrol is the market's own price.
+INK, PAPRIKA, PETROL = "#1F2A30", "#A83D24", "#30606B"
+OLIVE, GOLD, TAUPE = "#5E7A52", "#D8A33C", "#A99C88"
+CREAM, SAND, BORDER, STONE = "#F6F0E6", "#EFE7D9", "#DCD2C2", "#56666C"
+# Aliases kept so the rest of the file reads unchanged.
+TEAL, ORANGE, RED, GREY = PAPRIKA, GOLD, PETROL, TAUPE
+
+pio.templates["blankslate"] = go.layout.Template(layout=dict(
+    font=dict(color=INK, size=12),
+    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+    colorway=[PAPRIKA, OLIVE, PETROL, GOLD, STONE, TAUPE],
+    xaxis=dict(gridcolor="#E2D9C9", zerolinecolor=BORDER, linecolor=BORDER),
+    yaxis=dict(gridcolor="#E2D9C9", zerolinecolor=BORDER, linecolor=BORDER),
+    legend=dict(bgcolor="rgba(0,0,0,0)"),
+))
+pio.templates.default = "blankslate"
+
 st.markdown(f"""
 <style>
-.block-container {{padding-top: 1.6rem;}}
-.big-call {{font-size: 2.6rem; font-weight: 800; line-height: 1;}}
-.kpi {{border:1px solid #E3E8EC; border-radius:10px; padding:12px 14px;}}
-.kpi .l {{font-size:.78rem; color:#5A6B77; text-transform:uppercase; letter-spacing:.04em;}}
-.kpi .v {{font-size:1.45rem; font-weight:700; color:{INK};}}
+.block-container {{padding-top: 1.2rem;}}
+h1, h2, h3 {{color:{INK};}}
+
+/* The page header: one solid block of ink, the way every slide in the deck opens. */
+.band {{background:{INK}; border-radius:12px; padding:18px 22px 16px 22px; margin-bottom:14px;}}
+.band .n {{font-size:1.55rem; font-weight:800; color:#FFFFFF; line-height:1.15;}}
+.band .t {{display:inline-block; background:{PAPRIKA}; color:#FFFFFF; font-size:.72rem;
+           font-weight:700; letter-spacing:.09em; padding:3px 9px; border-radius:6px;
+           margin-bottom:8px;}}
+.band .s {{font-size:.80rem; color:#A99C88; margin-top:7px;}}
+
+/* The call, as a filled card rather than coloured text. */
+.call {{border-radius:12px; padding:16px 18px; color:#FFFFFF;}}
+.call .c {{font-size:2.5rem; font-weight:800; line-height:1;}}
+.call .f {{font-size:.82rem; opacity:.88; margin-top:4px;}}
+
+.kpi {{background:#FFFFFF; border:1px solid {BORDER}; border-radius:10px; padding:12px 14px;
+       height:100%;}}
+.kpi .l {{font-size:.74rem; color:{STONE}; text-transform:uppercase; letter-spacing:.05em;}}
+.kpi .v {{font-size:1.45rem; font-weight:700; color:{INK}; margin-top:2px;}}
+
+/* Tabs: the active one is marked by the accent, not by a grey box. */
+.stTabs [data-baseweb="tab-list"] {{gap:2px; border-bottom:1px solid {BORDER};}}
+.stTabs [data-baseweb="tab"] {{padding:8px 14px; color:{STONE};}}
+.stTabs [aria-selected="true"] {{color:{PAPRIKA} !important; font-weight:700;
+                                 border-bottom:3px solid {PAPRIKA};}}
+[data-testid="stSidebar"] {{background:{SAND};}}
+[data-testid="stDataFrame"] {{border:1px solid {BORDER}; border-radius:8px;}}
 </style>""", unsafe_allow_html=True)
 
 PCT_KEYS = {"g1", "g_terminal", "target_margin", "roic_terminal", "eff_tax_start", "roe_start", "roe_terminal", "payout"}
@@ -96,9 +137,13 @@ with st.sidebar.expander("Recommendation & scenario settings"):
 
 missing = preflight(d)
 m = d["meta"]
-st.title(f"{m.get('name') or 'Unnamed company'}  ·  {m.get('ticker') or ''}")
-st.caption(f"Sector: {m.get('sector')} · Valuation date: {m.get('valuation_date')} · "
-           f"Data last updated: {d.get('last_updated')} · Figures in {m.get('currency')} × {_num(m.get('unit')) or 1:,.0f}")
+st.markdown(
+    f"<div class='band'><div class='t'>BLANKSLATE</div>"
+    f"<div class='n'>{m.get('name') or 'Unnamed company'} &nbsp;·&nbsp; {m.get('ticker') or ''}</div>"
+    f"<div class='s'>Sector: {m.get('sector')} &nbsp;·&nbsp; Valuation date: {m.get('valuation_date')}"
+    f" &nbsp;·&nbsp; Data last updated: {d.get('last_updated')}"
+    f" &nbsp;·&nbsp; Figures in {m.get('currency')} × {_num(m.get('unit')) or 1:,.0f}</div></div>",
+    unsafe_allow_html=True)
 if missing:
     st.error("Cannot calculate yet. Missing required inputs: " + ", ".join(missing))
     st.stop()
@@ -115,11 +160,15 @@ tabs = st.tabs(["Dashboard", "Data & history", "Assumptions", "Intrinsic value",
 
 # ------------------------------------------------------------------ dashboard
 with tabs[0]:
-    color = {"BUY": TEAL, "HOLD": ORANGE, "SELL": RED}.get(rec["call"], GREY)
+    color = {"BUY": PAPRIKA, "HOLD": GOLD, "SELL": PETROL}.get(rec["call"], TAUPE)
     c1, c2 = st.columns([1.1, 2.4])
     with c1:
-        st.markdown(f"<div class='big-call' style='color:{color}'>{rec['call']}</div>", unsafe_allow_html=True)
-        st.write(f"Confidence: **{rec.get('confidence') or '–'}**")
+        up = rec.get("upside")
+        st.markdown(
+            f"<div class='call' style='background:{color}'>"
+            f"<div class='c'>{rec['call']}</div>"
+            f"<div class='f'>{fmt(up, pct=True) if up is not None else ''} &nbsp;·&nbsp; "
+            f"confidence {rec.get('confidence') or '–'}</div></div>", unsafe_allow_html=True)
         st.caption(rec["rationale"])
     with c2:
         k = st.columns(4)
@@ -139,9 +188,9 @@ with tabs[0]:
     bars = [("Intrinsic (" + ("excess return" if o["financial"] else "DCF") + ")", sc["bear"]["value"], sc["bull"]["value"], o["intrinsic_central"], TEAL)]
     for name, v in o["relative"]["multiples"].items():
         if v["usable"]:
-            bars.append((f"Relative · {name}", v["low"], v["high"], v["value"], "#6FA8B0"))
+            bars.append((f"Relative · {name}", v["low"], v["high"], v["value"], "#A99C88"))
     if comp:
-        bars.append(("Relative composite", comp["low"], comp["high"], comp["value"], "#4C7F8A"))
+        bars.append(("Relative composite", comp["low"], comp["high"], comp["value"], "#5E7A52"))
     bars.append(("Blended fair value", fv.get("low"), fv.get("high"), fv.get("central"), INK))
     fig = go.Figure()
     for i, (n, lo, hi, mid, colr) in enumerate(bars):
@@ -160,7 +209,7 @@ with tabs[0]:
     with c3:
         st.subheader("How the methods were weighted")
         wfig = go.Figure(go.Pie(labels=["Intrinsic", "Relative"], values=[dec["w_intrinsic"], dec["w_relative"]],
-                                hole=.6, marker_colors=[TEAL, "#6FA8B0"], sort=False))
+                                hole=.6, marker_colors=[PAPRIKA, OLIVE], sort=False))
         wfig.update_layout(height=260, margin=dict(l=0, r=0, t=10, b=0))
         st.plotly_chart(wfig, width='stretch')
         st.caption(f"Total tilt {dec['total_tilt']:+d} → intrinsic weight = clip(50% + 5% × tilt, 20%, 80%)"
@@ -220,7 +269,7 @@ with tabs[1]:
     rows = h["rows"]
     per = [r["period"] for r in rows]
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=per, y=[r["revenue"] for r in rows], name="Revenue", marker_color="#C9D6DE"))
+    fig.add_trace(go.Bar(x=per, y=[r["revenue"] for r in rows], name="Revenue", marker_color="#E3D9C9"))
     fig.add_trace(go.Bar(x=per, y=[r["ebit"] for r in rows], name="EBIT", marker_color=TEAL))
     fig.add_trace(go.Scatter(x=per, y=[r["ebit_margin"] for r in rows], name="EBIT margin", yaxis="y2",
                              mode="lines+markers", line=dict(color=ORANGE, width=3)))
@@ -250,7 +299,7 @@ with tabs[2]:
     for k in keys:
         dflt = o["defaults"].get(k)
         c1, c2, c3, c4 = st.columns([2.3, 1.2, .8, 1.4])
-        c1.write(f"**{labels.get(k, k)}**  \n<span style='color:#6b7b86;font-size:.8rem'>{o['assumption_sources'].get(k, 'market input')}</span>",
+        c1.write(f"**{labels.get(k, k)}**  \n<span style='color:#56666C;font-size:.8rem'>{o['assumption_sources'].get(k, 'market input')}</span>",
                  unsafe_allow_html=True)
         c2.write(f"default: {fmt(dflt, pct=k in pct_like, dec=2) if isinstance(dflt, (int, float)) else dflt}")
         on = c3.checkbox("override", value=k in ovr, key=f"chk_{k}")
@@ -297,7 +346,7 @@ with tabs[3]:
             measure=["relative", "relative", "total", "relative", "relative", "relative", "relative", "relative", "total"],
             y=[i["pv_explicit"], i["pv_tv"] or 0, 0, b["cash"], b["non_operating_assets"], -b["total_debt"],
                -b["lease_liabilities"], -b["minority_interest"], 0],
-            connector={"line": {"color": "#C9D6DE"}}, increasing={"marker": {"color": TEAL}},
+            connector={"line": {"color": "#DCD2C2"}}, increasing={"marker": {"color": TEAL}},
             decreasing={"marker": {"color": RED}}, totals={"marker": {"color": INK}}))
         wf.update_layout(title="Enterprise-to-equity bridge", height=360, margin=dict(l=10, r=10, t=50, b=10), plot_bgcolor="white")
         st.plotly_chart(wf, width='stretch')
@@ -323,7 +372,7 @@ with tabs[4]:
     for k, v in rel["multiples"].items():
         if not v["valid"]:
             continue
-        fig = go.Figure(go.Bar(x=[n for n, _ in v["valid"]], y=[x for _, x in v["valid"]], marker_color="#6FA8B0"))
+        fig = go.Figure(go.Bar(x=[n for n, _ in v["valid"]], y=[x for _, x in v["valid"]], marker_color=OLIVE))
         if v["median"]:
             fig.add_hline(y=v["median"], line_dash="dash", line_color=INK, annotation_text=f"median {v['median']:.2f}")
         fig.update_layout(title=f"{k}: valid peers", height=260, margin=dict(l=10, r=10, t=40, b=10), plot_bgcolor="white")
@@ -336,7 +385,7 @@ with tabs[5]:
     st.subheader("Valuation approach selection: rule trace")
     st.caption("Each factor tilts from −2 (favour relative valuation) to +2 (favour intrinsic valuation), using measured data.")
     fig = go.Figure(go.Bar(x=[f["tilt"] for f in dec["factors"]], y=[f"{f['id']} {f['name']}" for f in dec["factors"]],
-                           orientation="h", marker_color=[TEAL if f["tilt"] > 0 else ORANGE if f["tilt"] < 0 else GREY for f in dec["factors"]]))
+                           orientation="h", marker_color=[PAPRIKA if f["tilt"] > 0 else PETROL if f["tilt"] < 0 else TAUPE for f in dec["factors"]]))
     fig.update_layout(height=320, xaxis=dict(range=[-2.2, 2.2], dtick=1, title="← relative   tilt   intrinsic →"),
                       yaxis=dict(autorange="reversed"), margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor="white")
     st.plotly_chart(fig, width='stretch')
@@ -349,7 +398,7 @@ with tabs[6]:
     sc = o["scenarios"]
     st.subheader("Scenarios")
     fig = go.Figure(go.Bar(x=["Bear", "Base", "Bull"], y=[sc[k]["value"] for k in ("bear", "base", "bull")],
-                           marker_color=[RED, ORANGE, TEAL], text=[fmt(sc[k]["value"]) for k in ("bear", "base", "bull")]))
+                           marker_color=["#E6B6A3", "#B85A3E", "#A83D24"], text=[fmt(sc[k]["value"]) for k in ("bear", "base", "bull")]))
     fig.add_hline(y=o["price"], line_dash="dash", line_color=INK, annotation_text="market price")
     fig.update_layout(height=300, margin=dict(l=10, r=10, t=20, b=10), plot_bgcolor="white")
     st.plotly_chart(fig, width='stretch')
@@ -360,7 +409,7 @@ with tabs[6]:
     gs = [o["assumptions"]["g_terminal"] + x for x in (-0.01, -0.005, 0, 0.005, 0.01)]
     z = [row["values"] for row in o["sens_rate"]]
     hm = go.Figure(go.Heatmap(z=z, x=[f"{g:.2%}" for g in gs], y=[f"{row['rate']:.2%}" for row in o["sens_rate"]],
-                              colorscale=[[0, "#F3D9C9"], [.5, "#F7F7F7"], [1, "#BFE0E3"]],
+                              colorscale=[[0, "#F6E3DA"], [.5, "#D99877"], [1, "#A83D24"]],
                               text=[[fmt(v) for v in row] for row in z], texttemplate="%{text}"))
     hm.update_layout(height=320, xaxis_title="terminal growth", yaxis_title="discount rate", xaxis_type="category", yaxis_type="category", margin=dict(l=10, r=10, t=10, b=10))
     st.plotly_chart(hm, width='stretch')
@@ -369,7 +418,7 @@ with tabs[6]:
         g1s = [o["assumptions"]["g1"] + x for x in (-0.10, -0.05, 0, 0.05, 0.10)]
         z = [row["values"] for row in o["sens_ops"]]
         hm2 = go.Figure(go.Heatmap(z=z, x=[f"{g:.1%}" for g in g1s], y=[f"{row['target_margin']:.1%}" for row in o["sens_ops"]],
-                                   colorscale=[[0, "#F3D9C9"], [.5, "#F7F7F7"], [1, "#BFE0E3"]],
+                                   colorscale=[[0, "#F6E3DA"], [.5, "#D99877"], [1, "#A83D24"]],
                                    text=[[fmt(v) for v in row] for row in z], texttemplate="%{text}"))
         hm2.update_layout(height=320, xaxis_title="year-1 revenue growth", yaxis_title="target EBIT margin", xaxis_type="category", yaxis_type="category",
                           margin=dict(l=10, r=10, t=10, b=10))
